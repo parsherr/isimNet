@@ -84,20 +84,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   sessionRef.current = session;
 
   // ── Yardımcı: localStorage + state birlikte güncelle ─────────────────────
-  const set = useCallback({
-    customers: (fn: (prev: Customer[]) => Customer[]) => {
-      setCustomers(prev => { const next = fn(prev); lsWrite(LS.customers, next); return next; });
-    },
-    products: (fn: (prev: Product[]) => Product[]) => {
-      setProducts(prev => { const next = fn(prev); lsWrite(LS.products, next); return next; });
-    },
-    sales: (fn: (prev: Sale[]) => Sale[]) => {
-      setSales(prev => { const next = fn(prev); lsWrite(LS.sales, next); return next; });
-    },
-    payments: (fn: (prev: Payment[]) => Payment[]) => {
-      setPayments(prev => { const next = fn(prev); lsWrite(LS.payments, next); return next; });
-    },
-  } as const, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const setC = useCallback((fn: (prev: Customer[]) => Customer[]) => {
+    setCustomers(prev => { const next = fn(prev); lsWrite(LS.customers, next); return next; });
+  }, []);
+  const setP = useCallback((fn: (prev: Product[]) => Product[]) => {
+    setProducts(prev => { const next = fn(prev); lsWrite(LS.products, next); return next; });
+  }, []);
+  const setS = useCallback((fn: (prev: Sale[]) => Sale[]) => {
+    setSales(prev => { const next = fn(prev); lsWrite(LS.sales, next); return next; });
+  }, []);
+  const setPay = useCallback((fn: (prev: Payment[]) => Payment[]) => {
+    setPayments(prev => { const next = fn(prev); lsWrite(LS.payments, next); return next; });
+  }, []);
 
   // ── Mount: Drive'dan senkronize et ───────────────────────────────────────
   useEffect(() => {
@@ -201,48 +199,48 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addCustomer = useCallback((data: NewCustomerFormData) => {
     const now = new Date().toISOString();
     const newC: Customer = { ...data, id: `c_${Date.now()}`, createdAt: now, updatedAt: now };
-    set.customers(prev => [newC, ...prev]);
-  }, [set]);
+    setC(prev => [newC, ...prev]);
+  }, [setC]);
 
   const updateCustomer = useCallback((id: string, data: Partial<NewCustomerFormData>) => {
-    set.customers(prev => prev.map(c =>
+    setC(prev => prev.map(c =>
       c.id === id ? { ...c, ...data, updatedAt: new Date().toISOString() } : c
     ));
-  }, [set]);
+  }, [setC]);
 
   const deleteCustomer = useCallback((id: string) => {
-    set.customers(prev => prev.filter(c => c.id !== id));
-    set.sales(prev => prev.filter(s => s.customerId !== id));
-    set.payments(prev => prev.filter(p => p.customerId !== id));
-  }, [set]);
+    setC(prev => prev.filter(c => c.id !== id));
+    setS(prev => prev.filter(s => s.customerId !== id));
+    setPay(prev => prev.filter(p => p.customerId !== id));
+  }, [setC, setS, setPay]);
 
   // ── Ürün mutasyonları ─────────────────────────────────────────────────────
   const addProduct = useCallback((data: NewProductFormData) => {
     const now = new Date().toISOString();
     const newP: Product = { ...data, id: `p_${Date.now()}`, createdAt: now, updatedAt: now };
-    set.products(prev => [newP, ...prev]);
-  }, [set]);
+    setP(prev => [newP, ...prev]);
+  }, [setP]);
 
   const updateProduct = useCallback((id: string, data: Partial<NewProductFormData>) => {
-    set.products(prev => prev.map(p =>
+    setP(prev => prev.map(p =>
       p.id === id ? { ...p, ...data, updatedAt: new Date().toISOString() } : p
     ));
-  }, [set]);
+  }, [setP]);
 
   const deleteProduct = useCallback((id: string) => {
-    set.products(prev => prev.filter(p => p.id !== id));
-  }, [set]);
+    setP(prev => prev.filter(p => p.id !== id));
+  }, [setP]);
 
   // ── Satış & tahsilat ──────────────────────────────────────────────────────
   const addSale = useCallback((data: Omit<Sale, "id">) => {
     const newS: Sale = { ...data, id: `s_${Date.now()}` };
-    set.sales(prev => [newS, ...prev]);
-  }, [set]);
+    setS(prev => [newS, ...prev]);
+  }, [setS]);
 
   const addPayment = useCallback((data: Omit<Payment, "id">) => {
     const newP: Payment = { ...data, id: `pay_${Date.now()}` };
-    set.payments(prev => [newP, ...prev]);
-  }, [set]);
+    setPay(prev => [newP, ...prev]);
+  }, [setPay]);
 
   // ── Hesaplama yardımcıları ────────────────────────────────────────────────
   const getCustomerTotals = useCallback((customerId: string) => {
