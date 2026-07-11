@@ -2,32 +2,35 @@
 
 import { useState } from "react";
 import Header from "@/components/Header";
-import StatsBar from "@/components/urunler/StatsBar";
-import SearchInput from "@/components/urunler/SearchInput";
-import ProductCard from "@/components/urunler/ProductCard";
+import CustomerStatsBar from "@/components/musteriler/CustomerStatsBar";
+import CustomerCard from "@/components/musteriler/CustomerCard";
+import NewCustomerModal from "@/components/musteriler/NewCustomerModal";
 import FAB from "@/components/urunler/FAB";
-import NewProductModal from "@/components/urunler/NewProductModal";
+import SearchInput from "@/components/urunler/SearchInput";
 import Link from "next/link";
-import { MOCK_PRODUCTS, Product, NewProductFormData } from "@/lib/products";
+import {
+  MOCK_CUSTOMERS,
+  Customer,
+  NewCustomerFormData,
+  getCustomerTotals,
+} from "@/lib/customers";
 
-export default function UrunlerPage() {
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+export default function MusterilerPage() {
+  const [customers, setCustomers] = useState<Customer[]>(MOCK_CUSTOMERS);
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCustomers = customers.filter((c) =>
+    c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalAssets = products.reduce((sum, p) => sum + p.price * p.stock, 0);
-  const totalStock = products.reduce((sum, p) => sum + p.stock, 0);
+  const totalOutstandingDebt = customers.reduce(
+    (sum, c) => sum + getCustomerTotals(c.id).currentDebt,
+    0
+  );
 
-  function handleAddProduct(data: NewProductFormData) {
-    const newProduct: Product = {
-      ...data,
-      id: Date.now().toString(),
-    };
-    setProducts((prev) => [newProduct, ...prev]);
+  function handleAddCustomer(data: NewCustomerFormData) {
+    setCustomers((prev) => [{ ...data, id: Date.now().toString() }, ...prev]);
   }
 
   return (
@@ -44,20 +47,27 @@ export default function UrunlerPage() {
           </svg>
           Ana Sayfa
         </Link>
-        <StatsBar totalAssets={totalAssets} totalStock={totalStock} />
+        <CustomerStatsBar
+          customerCount={customers.length}
+          totalOutstandingDebt={totalOutstandingDebt}
+        />
 
         <div className="mt-4">
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Ürün ara..."
+            placeholder="Müşteri ara..."
           />
         </div>
 
         <div className="flex flex-col gap-3 mt-4">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+          {filteredCustomers.length > 0 ? (
+            filteredCustomers.map((customer) => (
+              <CustomerCard
+                key={customer.id}
+                customer={customer}
+                debt={getCustomerTotals(customer.id).currentDebt}
+              />
             ))
           ) : (
             <div className="text-center py-16 text-gray-400">
@@ -69,11 +79,8 @@ export default function UrunlerPage() {
                 stroke="currentColor"
                 className="w-12 h-12 mx-auto mb-3 opacity-40"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round"
+                  d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
               </svg>
               <p className="text-sm">Arama sonucu bulunamadı</p>
             </div>
@@ -81,12 +88,12 @@ export default function UrunlerPage() {
         </div>
       </main>
 
-      <FAB onClick={() => setIsModalOpen(true)} />
+      <FAB onClick={() => setIsModalOpen(true)} aria-label="Yeni Müşteri Ekle" />
 
-      <NewProductModal
+      <NewCustomerModal
         open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSubmit={handleAddProduct}
+        onSubmit={handleAddCustomer}
       />
     </div>
   );
