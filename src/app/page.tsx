@@ -6,7 +6,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#F7F6F2] text-gray-900 overflow-x-hidden">
 
       {/* NAV */}
-      <nav className="sticky top-0 z-50 bg-white border-b-2 border-black">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
         <div className="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
           <Image src="/logo.png" alt="İşimNet" width={100} height={30} className="object-contain" />
           <Link
@@ -19,7 +19,7 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section className="max-w-3xl mx-auto px-5 pt-20 pb-20 text-center">
+      <section className="max-w-3xl mx-auto px-5 pt-36 pb-20 text-center">
         <h1 className="text-5xl sm:text-6xl md:text-7xl font-black leading-[1.05] tracking-tight mb-6">
           Müşteri Borçları<br />
           ve <span className="text-blue-600">Stok Takibi</span><br />
