@@ -1,0 +1,10 @@
+GOAL: [aktif hedef]
+ITERATION: 0
+STATUS: idle
+DEV_SERVER: unknown
+VISUAL_QA: unknown
+ACTIVE_TASK: none
+COMPLETED_TASKS: []
+GAPS: []
+BLOCKED: []
+LAST_UPDATED: [tarih]

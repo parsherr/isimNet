@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MOCK_PRODUCTS } from "@/lib/products";
 import { Sale, SaleItem, SaleItemDraft } from "@/lib/customers";
 import { formatCurrency } from "@/lib/format";
+import { useData } from "@/context/DataContext";
 
 interface NewSaleModalProps {
   open: boolean;
@@ -14,6 +14,7 @@ interface NewSaleModalProps {
 const VAT_RATES = [0, 10, 20] as const;
 
 export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalProps) {
+  const { products } = useData();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<SaleItemDraft[]>([]);
@@ -32,24 +33,20 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
 
   if (!open) return null;
 
-  // ── Step 1 handlers ──
   function toggleProduct(id: string) {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
 
   function goToStep2() {
     if (selectedIds.length === 0) return;
     const newDrafts = selectedIds.map((pid) => {
-      const p = MOCK_PRODUCTS.find((x) => x.id === pid)!;
+      const p = products.find((x) => x.id === pid)!;
       return { productId: pid, productName: p.name, listPrice: p.price, quantity: 1, priceOverride: undefined };
     });
     setDrafts(newDrafts);
     setStep(2);
   }
 
-  // ── Step 2 handlers ──
   function updateDraft(pid: string, field: "quantity" | "priceOverride", value: number | undefined) {
     setDrafts((prev) => prev.map((d) => d.productId === pid ? { ...d, [field]: value } : d));
   }
@@ -58,22 +55,16 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
     const errors: Record<string, string> = {};
     drafts.forEach((d) => {
       if (!d.quantity || d.quantity < 1) errors[`qty-${d.productId}`] = "Min 1";
-      if (d.priceOverride !== undefined && d.priceOverride <= 0)
-        errors[`price-${d.productId}`] = "Geçerli fiyat";
+      if (d.priceOverride !== undefined && d.priceOverride <= 0) errors[`price-${d.productId}`] = "Geçerli fiyat";
     });
     setStepErrors(errors);
     return Object.keys(errors).length === 0;
   }
 
-  // ── Computed totals ──
-  const subtotal = drafts.reduce((s, d) => {
-    const price = d.priceOverride ?? d.listPrice;
-    return s + (d.quantity || 0) * price;
-  }, 0);
+  const subtotal = drafts.reduce((s, d) => s + (d.quantity || 0) * (d.priceOverride ?? d.listPrice), 0);
   const vatAmount = Math.round(subtotal * vatRate) / 100;
   const total = subtotal + vatAmount;
 
-  // ── Step 4 submit ──
   function handleSubmit() {
     const items: SaleItem[] = drafts.map((d) => ({
       productId: d.productId,
@@ -81,25 +72,16 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
       quantity: d.quantity,
       unitPrice: d.priceOverride ?? d.listPrice,
     }));
-    onSubmit({
-      date: new Date().toISOString(),
-      items,
-      vatRate,
-      subtotal,
-      vatAmount,
-      total,
-    });
+    onSubmit({ date: new Date().toISOString(), items, vatRate, subtotal, vatAmount, total });
     resetAndClose();
   }
 
-  const inputClass =
-    "bg-gray-50 rounded-xl px-3 py-2 text-gray-900 text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400";
+  const inputClass = "bg-gray-50 rounded-xl px-3 py-2 text-gray-900 text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-400";
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={step === 1 ? resetAndClose : undefined} />
       <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] flex flex-col">
-        {/* Handle + header */}
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4 shrink-0" />
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div className="flex items-center gap-2">
@@ -111,27 +93,20 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
               </button>
             )}
             <h2 className="text-lg font-semibold text-gray-900">
-              {step === 1 && "Ürün Seç"}
-              {step === 2 && "Miktar & Fiyat"}
-              {step === 3 && "KDV"}
-              {step === 4 && "Özet"}
+              {step === 1 && "Ürün Seç"}{step === 2 && "Miktar & Fiyat"}{step === 3 && "KDV"}{step === 4 && "Özet"}
             </h2>
           </div>
           <div className="flex gap-1">
             {[1, 2, 3, 4].map((s) => (
-              <div key={s} className="w-2 h-2 rounded-full transition-colors"
-                style={{ background: s <= step ? "#4F46E5" : "#E5E7EB" }} />
+              <div key={s} className="w-2 h-2 rounded-full transition-colors" style={{ background: s <= step ? "#4F46E5" : "#E5E7EB" }} />
             ))}
           </div>
         </div>
 
-        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
-
-          {/* Step 1: Ürün seçimi */}
           {step === 1 && (
             <div className="flex flex-col gap-2 pb-2">
-              {MOCK_PRODUCTS.map((p) => {
+              {products.map((p) => {
                 const selected = selectedIds.includes(p.id);
                 return (
                   <button key={p.id} onClick={() => toggleProduct(p.id)}
@@ -151,7 +126,6 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
             </div>
           )}
 
-          {/* Step 2: Miktar & Fiyat */}
           {step === 2 && (
             <div className="flex flex-col gap-4 pb-2">
               {drafts.map((d) => (
@@ -164,20 +138,15 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
                       <input type="number" inputMode="numeric" min={1} value={d.quantity || ""}
                         onChange={(e) => updateDraft(d.productId, "quantity", parseInt(e.target.value) || 0)}
                         className={`${inputClass} w-full`} />
-                      {stepErrors[`qty-${d.productId}`] && (
-                        <p className="text-red-500 text-xs mt-1">{stepErrors[`qty-${d.productId}`]}</p>
-                      )}
+                      {stepErrors[`qty-${d.productId}`] && <p className="text-red-500 text-xs mt-1">{stepErrors[`qty-${d.productId}`]}</p>}
                     </div>
                     <div className="flex-1">
                       <label className="text-xs text-gray-500 mb-1 block">Birim Fiyat (₺)</label>
-                      <input type="number" inputMode="decimal"
-                        placeholder={String(d.listPrice)}
+                      <input type="number" inputMode="decimal" placeholder={String(d.listPrice)}
                         value={d.priceOverride ?? ""}
                         onChange={(e) => updateDraft(d.productId, "priceOverride", e.target.value ? parseFloat(e.target.value) : undefined)}
                         className={`${inputClass} w-full`} />
-                      {stepErrors[`price-${d.productId}`] && (
-                        <p className="text-red-500 text-xs mt-1">{stepErrors[`price-${d.productId}`]}</p>
-                      )}
+                      {stepErrors[`price-${d.productId}`] && <p className="text-red-500 text-xs mt-1">{stepErrors[`price-${d.productId}`]}</p>}
                     </div>
                   </div>
                 </div>
@@ -185,29 +154,20 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
             </div>
           )}
 
-          {/* Step 3: KDV */}
           {step === 3 && (
             <div className="pb-2">
               <div className="flex gap-2 mb-6">
                 {VAT_RATES.map((rate) => (
                   <button key={rate} onClick={() => setVatRate(rate)}
                     className="flex-1 py-3 rounded-2xl font-semibold text-sm border-2 transition-all"
-                    style={{
-                      borderColor: vatRate === rate ? "#4F46E5" : "#E5E7EB",
-                      background: vatRate === rate ? "#4F46E5" : "#fff",
-                      color: vatRate === rate ? "#fff" : "#6B7280",
-                    }}>
+                    style={{ borderColor: vatRate === rate ? "#4F46E5" : "#E5E7EB", background: vatRate === rate ? "#4F46E5" : "#fff", color: vatRate === rate ? "#fff" : "#6B7280" }}>
                     %{rate}
                   </button>
                 ))}
               </div>
               <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-2">
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>Ara Toplam</span><span>{formatCurrency(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600">
-                  <span>KDV (%{vatRate})</span><span>+{formatCurrency(vatAmount)}</span>
-                </div>
+                <div className="flex justify-between text-sm text-gray-600"><span>Ara Toplam</span><span>{formatCurrency(subtotal)}</span></div>
+                <div className="flex justify-between text-sm text-gray-600"><span>KDV (%{vatRate})</span><span>+{formatCurrency(vatAmount)}</span></div>
                 <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-200">
                   <span>Toplam</span><span style={{ color: "#4F46E5" }}>{formatCurrency(total)}</span>
                 </div>
@@ -215,7 +175,6 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
             </div>
           )}
 
-          {/* Step 4: Özet */}
           {step === 4 && (
             <div className="pb-2">
               <div className="bg-gray-50 rounded-2xl p-4 mb-4">
@@ -228,19 +187,15 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
                     </div>
                   );
                 })}
-                <div className="flex justify-between text-sm text-gray-500 pt-2 mt-1">
-                  <span>KDV (%{vatRate})</span><span>+{formatCurrency(vatAmount)}</span>
-                </div>
+                <div className="flex justify-between text-sm text-gray-500 pt-2 mt-1"><span>KDV (%{vatRate})</span><span>+{formatCurrency(vatAmount)}</span></div>
                 <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-200 mt-1">
-                  <span>Genel Toplam</span>
-                  <span style={{ color: "#4F46E5" }}>{formatCurrency(total)}</span>
+                  <span>Genel Toplam</span><span style={{ color: "#4F46E5" }}>{formatCurrency(total)}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer buton */}
         <div className="shrink-0 pt-3">
           {step === 1 && (
             <button onClick={goToStep2} disabled={selectedIds.length === 0}
@@ -252,23 +207,17 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
           {step === 2 && (
             <button onClick={() => { if (validateStep2()) setStep(3); }}
               className="w-full py-4 rounded-2xl font-semibold text-white text-base transition-all active:scale-[0.98]"
-              style={{ background: "#4F46E5" }}>
-              Devam →
-            </button>
+              style={{ background: "#4F46E5" }}>Devam →</button>
           )}
           {step === 3 && (
             <button onClick={() => setStep(4)}
               className="w-full py-4 rounded-2xl font-semibold text-white text-base transition-all active:scale-[0.98]"
-              style={{ background: "#4F46E5" }}>
-              Özeti Gör →
-            </button>
+              style={{ background: "#4F46E5" }}>Özeti Gör →</button>
           )}
           {step === 4 && (
             <button onClick={handleSubmit}
               className="w-full py-4 rounded-2xl font-semibold text-white text-base transition-all active:scale-[0.98]"
-              style={{ background: "#059669" }}>
-              Onayla ve Kaydet
-            </button>
+              style={{ background: "#059669" }}>Onayla ve Kaydet</button>
           )}
         </div>
       </div>
