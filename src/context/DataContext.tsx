@@ -257,7 +257,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setC(prev => prev.filter(c => c.id !== id));
     setS(prev => prev.filter(s => s.customerId !== id));
     setPay(prev => prev.filter(p => p.customerId !== id));
-  }, [setC, setS, setPay]);
+    setD(prev => prev.filter(d => d.customerId !== id));
+  }, [setC, setS, setPay, setD]);
 
   // ── Ürün mutasyonları ─────────────────────────────────────────────────────
   const addProduct = useCallback((data: NewProductFormData) => {
