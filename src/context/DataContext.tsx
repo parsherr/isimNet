@@ -149,11 +149,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const finalPay = pay ?? (hasLocal ? stateRef.current.payments  : []);
       const finalD   = d   ?? (hasLocal ? stateRef.current.debts     : []);
 
-      setCustomers(finalC);   lsWrite(LS.customers, finalC);
-      setProducts(finalP);    lsWrite(LS.products,  finalP);
-      setSales(finalS);       lsWrite(LS.sales,     finalS);
-      setPayments(finalPay);  lsWrite(LS.payments,  finalPay);
-      setDebts(finalD);       lsWrite(LS.debts,     finalD);
+      // Müşterisi silinmiş orphan kayıtları temizle
+      const cIds = new Set(finalC.map(x => x.id));
+      const cleanS   = finalS.filter(s => cIds.has(s.customerId));
+      const cleanPay = finalPay.filter(p => cIds.has(p.customerId));
+      const cleanD   = finalD.filter(d => cIds.has(d.customerId));
+
+      setCustomers(finalC);    lsWrite(LS.customers, finalC);
+      setProducts(finalP);     lsWrite(LS.products,  finalP);
+      setSales(cleanS);        lsWrite(LS.sales,     cleanS);
+      setPayments(cleanPay);   lsWrite(LS.payments,  cleanPay);
+      setDebts(cleanD);        lsWrite(LS.debts,     cleanD);
       setIsLoading(false);
     }).catch(() => {
       // Drive erişilemiyorsa localStorage'daki veri yeterli

@@ -6,13 +6,15 @@ import { formatCurrency } from "@/lib/format";
 import { useData } from "@/context/DataContext";
 
 export default function RaporlarPage() {
-  const { customers, products, sales, isLoading, getCustomerTotals } = useData();
+  const { customers, products, sales, debts, isLoading, getCustomerTotals } = useData();
 
   const now = new Date();
 
   const toplamAlacak = customers.reduce(
     (sum, c) => sum + getCustomerTotals(c.id).currentDebt, 0
   );
+
+  const toplamBorcum = debts.reduce((sum, d) => sum + d.amount, 0);
 
   const toplamMalVarligi = products.reduce(
     (sum, p) => sum + p.price * p.stock, 0
@@ -42,7 +44,7 @@ export default function RaporlarPage() {
 
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3">
-            {[1,2,3].map(i => (
+            {[1,2,3,4].map(i => (
               <div key={i} className={`bg-white rounded-2xl h-24 animate-pulse ${i === 1 ? "col-span-2" : ""}`} style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }} />
             ))}
           </div>
@@ -53,6 +55,14 @@ export default function RaporlarPage() {
               <p className="font-bold text-3xl leading-tight text-red-500">{formatCurrency(toplamAlacak)}</p>
               <p className="text-gray-400 text-xs mt-1">
                 {customers.filter((c) => getCustomerTotals(c.id).currentDebt > 0).length} müşteride bekleyen alacak
+              </p>
+            </div>
+
+            <div className="col-span-2 bg-white rounded-2xl p-5" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>
+              <p className="text-gray-400 text-xs mb-2">Toplam Borcum</p>
+              <p className="font-bold text-3xl leading-tight" style={{ color: "#EA580C" }}>{formatCurrency(toplamBorcum)}</p>
+              <p className="text-gray-400 text-xs mt-1">
+                {customers.filter((c) => getCustomerTotals(c.id).myDebt > 0).length} müşteriye borcum var
               </p>
             </div>
 

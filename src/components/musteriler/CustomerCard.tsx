@@ -5,9 +5,10 @@ import { formatCurrency } from "@/lib/format";
 interface CustomerCardProps {
   customer: Customer;
   debt: number;
+  myDebt: number;
 }
 
-export default function CustomerCard({ customer, debt }: CustomerCardProps) {
+export default function CustomerCard({ customer, debt, myDebt }: CustomerCardProps) {
   return (
     <Link
       href={`/dashboard/musteriler/${customer.id}`}
@@ -42,11 +43,17 @@ export default function CustomerCard({ customer, debt }: CustomerCardProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        {debt <= 0 ? (
-          <span className="text-sm font-semibold" style={{ color: "#059669" }}>Alacak Yok</span>
-        ) : (
-          <span className="text-sm font-semibold text-red-500">{formatCurrency(debt)}</span>
-        )}
+        <div className="flex flex-col items-end gap-0.5">
+          {debt > 0 && (
+            <span className="text-sm font-semibold text-red-500">{formatCurrency(debt)}</span>
+          )}
+          {myDebt > 0 && (
+            <span className="text-xs font-semibold" style={{ color: "#EA580C" }}>Borç: {formatCurrency(myDebt)}</span>
+          )}
+          {debt <= 0 && myDebt <= 0 && (
+            <span className="text-sm font-semibold text-gray-400">Temiz</span>
+          )}
+        </div>
         <div className="w-7 h-7 rounded-full flex items-center justify-center bg-gray-100">
           <svg
             xmlns="http://www.w3.org/2000/svg"

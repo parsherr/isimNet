@@ -54,7 +54,7 @@ export default function MusterilerPage() {
             <div className="flex flex-col gap-3 mt-4">
               {filteredCustomers.length > 0 ? (
                 filteredCustomers.map((customer) => (
-                  <CustomerCard key={customer.id} customer={customer} debt={getCustomerTotals(customer.id).currentDebt} />
+                  <CustomerCard key={customer.id} customer={customer} debt={getCustomerTotals(customer.id).currentDebt} myDebt={getCustomerTotals(customer.id).myDebt} />
                 ))
               ) : (
                 <div className="text-center py-16 text-gray-400">
