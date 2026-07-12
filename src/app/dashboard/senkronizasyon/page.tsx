@@ -26,7 +26,7 @@ function formatSyncTime(date: Date | null): string {
 export default function SenkronizasyonPage() {
   const { data: session } = useSession();
   const {
-    customers, products, sales, payments,
+    customers, products, sales, payments, debts,
     isSyncing, lastSyncTime,
     syncToDrive, restoreFromDrive,
   } = useData();
@@ -77,6 +77,9 @@ export default function SenkronizasyonPage() {
     { label: "Tahsilatlar", count: payments.length,
       icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="#0891B2" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M9 14.25l6-6m4.5-3.493V21.75l-3.75-1.5-3.75 1.5-3.75-1.5-3.75 1.5V4.757c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0c1.1.128 1.907 1.077 1.907 2.185ZM9.75 9h.008v.008H9.75V9Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm4.125 4.5h.008v.008h-.008V13.5Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" /></svg>,
       bg: "#ECFEFF" },
+    { label: "Borçlar", count: debts.length,
+      icon: <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="#EA580C" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>,
+      bg: "#FFF7ED" },
   ];
 
   return (
