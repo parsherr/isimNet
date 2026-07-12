@@ -11,7 +11,6 @@ import {
 } from "@/lib/customers";
 import { Product, NewProductFormData } from "@/lib/products";
 import { readDriveFile, writeDriveFile } from "@/lib/drive";
-import { SEED_CUSTOMERS, SEED_PRODUCTS, SEED_SALES, SEED_PAYMENTS } from "@/lib/seedData";
 
 // ── LocalStorage anahtarları ──────────────────────────────────────────────────
 const LS = {
@@ -52,7 +51,10 @@ interface DataContextValue {
   deleteProduct: (id: string) => void;
 
   addSale:    (sale: Omit<Sale, "id">) => void;
-  addPayment: (payment: Omit<Payment, "id">) => void;
+  deleteSale: (id: string) => void;
+
+  addPayment:    (payment: Omit<Payment, "id">) => void;
+  deletePayment: (id: string) => void;
 
   getCustomerTotals: (customerId: string) => {
     totalRevenue: number; totalCollected: number; currentDebt: number;
@@ -60,6 +62,7 @@ interface DataContextValue {
   getCustomerFeed: (customerId: string) => ActivityItem[];
 
   syncToDrive: () => Promise<void>;
+  clearAllData: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | null>(null);
@@ -119,36 +122,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       readDriveFile<Sale>(token,     "sales.json"),
       readDriveFile<Payment>(token,  "payments.json"),
     ]).then(([c, p, s, pay]) => {
-      const isNewUser = !c && !p && !s && !pay;
-
-      const finalC   = c   ?? (hasLocal ? stateRef.current.customers : SEED_CUSTOMERS);
-      const finalP   = p   ?? (hasLocal ? stateRef.current.products  : SEED_PRODUCTS);
-      const finalS   = s   ?? (hasLocal ? stateRef.current.sales     : SEED_SALES);
-      const finalPay = pay ?? (hasLocal ? stateRef.current.payments  : SEED_PAYMENTS);
+      const finalC   = c   ?? (hasLocal ? stateRef.current.customers : []);
+      const finalP   = p   ?? (hasLocal ? stateRef.current.products  : []);
+      const finalS   = s   ?? (hasLocal ? stateRef.current.sales     : []);
+      const finalPay = pay ?? (hasLocal ? stateRef.current.payments  : []);
 
       setCustomers(finalC);   lsWrite(LS.customers, finalC);
       setProducts(finalP);    lsWrite(LS.products,  finalP);
       setSales(finalS);       lsWrite(LS.sales,     finalS);
       setPayments(finalPay);  lsWrite(LS.payments,  finalPay);
       setIsLoading(false);
-
-      // Yeni kullanıcıysa seed'i Drive'a yaz
-      if (isNewUser) {
-        Promise.all([
-          writeDriveFile(token, "customers.json", finalC),
-          writeDriveFile(token, "products.json",  finalP),
-          writeDriveFile(token, "sales.json",     finalS),
-          writeDriveFile(token, "payments.json",  finalPay),
-        ]).catch(console.error);
-      }
     }).catch(() => {
       // Drive erişilemiyorsa localStorage'daki veri yeterli
-      if (!hasLocal) {
-        setCustomers(SEED_CUSTOMERS); lsWrite(LS.customers, SEED_CUSTOMERS);
-        setProducts(SEED_PRODUCTS);   lsWrite(LS.products,  SEED_PRODUCTS);
-        setSales(SEED_SALES);         lsWrite(LS.sales,     SEED_SALES);
-        setPayments(SEED_PAYMENTS);   lsWrite(LS.payments,  SEED_PAYMENTS);
-      }
       setIsLoading(false);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -195,6 +180,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVisibilityHide);
   }, []);
 
+  // ── Periyodik sync (her 5 dakikada bir) ──────────────────────────────────
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const id = setInterval(() => syncToDrive(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [status, syncToDrive]);
+
   // ── Müşteri mutasyonları ──────────────────────────────────────────────────
   const addCustomer = useCallback((data: NewCustomerFormData) => {
     const now = new Date().toISOString();
@@ -235,12 +227,54 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addSale = useCallback((data: Omit<Sale, "id">) => {
     const newS: Sale = { ...data, id: `s_${Date.now()}` };
     setS(prev => [newS, ...prev]);
-  }, [setS]);
+    // Satılan ürünlerin stokunu düşür
+    const now = new Date().toISOString();
+    setP(prev => prev.map(p => {
+      const item = data.items.find(i => i.productId === p.id);
+      if (!item) return p;
+      return { ...p, stock: Math.max(0, p.stock - item.quantity), updatedAt: now };
+    }));
+  }, [setS, setP]);
+
+  const deleteSale = useCallback((id: string) => {
+    // Silinen satışın stoklarını geri yükle
+    const sale = stateRef.current.sales.find(s => s.id === id);
+    if (sale) {
+      const now = new Date().toISOString();
+      setP(prev => prev.map(p => {
+        const item = sale.items.find(i => i.productId === p.id);
+        if (!item) return p;
+        return { ...p, stock: p.stock + item.quantity, updatedAt: now };
+      }));
+    }
+    setS(prev => prev.filter(s => s.id !== id));
+  }, [setS, setP]);
 
   const addPayment = useCallback((data: Omit<Payment, "id">) => {
     const newP: Payment = { ...data, id: `pay_${Date.now()}` };
     setPay(prev => [newP, ...prev]);
   }, [setPay]);
+
+  const deletePayment = useCallback((id: string) => {
+    setPay(prev => prev.filter(p => p.id !== id));
+  }, [setPay]);
+
+  const clearAllData = useCallback(async () => {
+    const empty = { customers: [] as Customer[], products: [] as Product[], sales: [] as Sale[], payments: [] as Payment[] };
+    setCustomers([]); lsWrite(LS.customers, []);
+    setProducts([]);  lsWrite(LS.products,  []);
+    setSales([]);     lsWrite(LS.sales,     []);
+    setPayments([]);  lsWrite(LS.payments,  []);
+    const token = sessionRef.current?.accessToken;
+    if (token) {
+      await Promise.all([
+        writeDriveFile(token, "customers.json", empty.customers),
+        writeDriveFile(token, "products.json",  empty.products),
+        writeDriveFile(token, "sales.json",     empty.sales),
+        writeDriveFile(token, "payments.json",  empty.payments),
+      ]).catch(console.error);
+    }
+  }, []);
 
   // ── Hesaplama yardımcıları ────────────────────────────────────────────────
   const getCustomerTotals = useCallback((customerId: string) => {
@@ -261,17 +295,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     isLoading, isSyncing,
     addCustomer, updateCustomer, deleteCustomer,
     addProduct, updateProduct, deleteProduct,
-    addSale, addPayment,
+    addSale, deleteSale, addPayment, deletePayment,
     getCustomerTotals, getCustomerFeed,
-    syncToDrive,
+    syncToDrive, clearAllData,
   }), [
     customers, products, sales, payments,
     isLoading, isSyncing,
     addCustomer, updateCustomer, deleteCustomer,
     addProduct, updateProduct, deleteProduct,
-    addSale, addPayment,
+    addSale, deleteSale, addPayment, deletePayment,
     getCustomerTotals, getCustomerFeed,
-    syncToDrive,
+    syncToDrive, clearAllData,
   ]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
