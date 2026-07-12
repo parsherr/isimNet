@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ActivityItem, Sale, Payment } from "@/lib/customers";
+import { BsDatabaseFillDash } from "react-icons/bs";
+import { ActivityItem, Sale, Payment, Debt } from "@/lib/customers";
 import { formatCurrency } from "@/lib/format";
 import { useData } from "@/context/DataContext";
 
@@ -22,19 +23,25 @@ function formatDateTime(iso: string): string {
 export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { deleteSale, deletePayment } = useData();
+  const { deleteSale, deletePayment, deleteDebt } = useData();
 
-  const isSale = item.type === "sale";
-  const sale = isSale ? (item.data as Sale) : null;
-  const payment = !isSale ? (item.data as Payment) : null;
+  const isSale    = item.type === "sale";
+  const isPayment = item.type === "payment";
+  const isDebt    = item.type === "debt";
+  const sale    = isSale    ? (item.data as Sale)    : null;
+  const payment = isPayment ? (item.data as Payment) : null;
+  const debt    = isDebt    ? (item.data as Debt)    : null;
 
-  const tutar = isSale ? sale!.total : payment!.amount;
-  const tutarRenk = isSale ? "#4F46E5" : "#059669";
+  const tutar = isSale ? sale!.total : isPayment ? payment!.amount : debt!.amount;
+  const tutarRenk = isSale ? "#4F46E5" : isPayment ? "#059669" : "#EA580C";
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => setIsOpen((o) => !o)}
-      className="bg-white rounded-2xl p-4 w-full text-left transition-all active:scale-[0.98]"
+      onKeyDown={(e) => e.key === "Enter" && setIsOpen((o) => !o)}
+      className="bg-white rounded-2xl p-4 w-full text-left transition-all active:scale-[0.98] cursor-pointer"
       style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}
     >
       {/* Collapsed satır */}
@@ -42,22 +49,24 @@ export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
         {/* İkon */}
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: isSale ? "#EEF2FF" : "#ECFDF5" }}
+          style={{ background: isSale ? "#EEF2FF" : isPayment ? "#ECFDF5" : "#FFF7ED" }}
         >
-          {isSale ? (
+          {isSale && (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="#4F46E5" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007Z" />
             </svg>
-          ) : (
+          )}
+          {isPayment && (
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="#059669" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z" />
             </svg>
           )}
+          {isDebt && <BsDatabaseFillDash size={20} color="#EA580C" />}
         </div>
 
         {/* Orta: tip + tarih */}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 text-sm">{isSale ? "Satış" : "Tahsilat"}</p>
+          <p className="font-medium text-gray-900 text-sm">{isSale ? "Satış" : isPayment ? "Tahsilat" : "Borç"}</p>
           <p className="text-gray-400 text-xs mt-0.5">{formatShortDate(item.date)}</p>
         </div>
 
@@ -113,7 +122,7 @@ export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
             </>
           )}
 
-          {!isSale && payment && (
+          {isPayment && payment && (
             <>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Tutar</span>
@@ -128,6 +137,25 @@ export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-400">Tarih & Saat</span>
                 <span className="text-gray-700">{formatDateTime(payment.date)}</span>
+              </div>
+            </>
+          )}
+
+          {isDebt && debt && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Tutar</span>
+                <span className="font-bold" style={{ color: "#EA580C" }}>{formatCurrency(debt.amount)}</span>
+              </div>
+              {debt.description && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Açıklama</span>
+                  <span className="text-gray-700 text-right ml-4">{debt.description}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Tarih & Saat</span>
+                <span className="text-gray-700">{formatDateTime(debt.date)}</span>
               </div>
             </>
           )}
@@ -151,7 +179,8 @@ export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
                   onClick={(e) => {
                     e.stopPropagation();
                     if (isSale && sale) deleteSale(sale.id);
-                    else if (!isSale && payment) deletePayment(payment.id);
+                    else if (isPayment && payment) deletePayment(payment.id);
+                    else if (isDebt && debt) deleteDebt(debt.id);
                   }}
                   className="text-xs font-semibold text-white px-3 py-1 rounded-lg"
                   style={{ background: "#EF4444" }}
@@ -169,6 +198,6 @@ export default function ActivityFeedItem({ item }: ActivityFeedItemProps) {
           </div>
         </div>
       )}
-    </button>
+    </div>
   );
 }

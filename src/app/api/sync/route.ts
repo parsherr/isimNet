@@ -6,12 +6,13 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const { customers, products, sales, payments } = await req.json();
+    const { customers, products, sales, payments, debts } = await req.json();
     await Promise.all([
       writeDriveFile(token, "customers.json", customers),
       writeDriveFile(token, "products.json",  products),
       writeDriveFile(token, "sales.json",     sales),
       writeDriveFile(token, "payments.json",  payments),
+      writeDriveFile(token, "debts.json",     debts ?? []),
     ]);
     return NextResponse.json({ ok: true });
   } catch (e) {

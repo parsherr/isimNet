@@ -43,7 +43,7 @@ export default function CustomerCard({ customer, debt }: CustomerCardProps) {
 
       <div className="flex items-center gap-2 shrink-0">
         {debt <= 0 ? (
-          <span className="text-sm font-semibold" style={{ color: "#059669" }}>Borç Yok</span>
+          <span className="text-sm font-semibold" style={{ color: "#059669" }}>Alacak Yok</span>
         ) : (
           <span className="text-sm font-semibold text-red-500">{formatCurrency(debt)}</span>
         )}

@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { BsDatabaseFillDash } from "react-icons/bs";
 
 interface DetailFABProps {
   onNewSale: () => void;
   onNewPayment: () => void;
+  onNewDebt: () => void;
 }
 
-export default function DetailFAB({ onNewSale, onNewPayment }: DetailFABProps) {
+export default function DetailFAB({ onNewSale, onNewPayment, onNewDebt }: DetailFABProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   function handleSale() {
@@ -18,6 +20,11 @@ export default function DetailFAB({ onNewSale, onNewPayment }: DetailFABProps) {
   function handlePayment() {
     setIsOpen(false);
     onNewPayment();
+  }
+
+  function handleDebt() {
+    setIsOpen(false);
+    onNewDebt();
   }
 
   return (
@@ -33,6 +40,14 @@ export default function DetailFAB({ onNewSale, onNewPayment }: DetailFABProps) {
       {/* Pill butonlar */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-50 flex flex-col items-end gap-2">
+          <button
+            onClick={handleDebt}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-white text-sm shadow-lg transition-all active:scale-[0.97]"
+            style={{ background: "#EA580C", boxShadow: "0 4px 16px rgba(234,88,12,0.4)" }}
+          >
+            <BsDatabaseFillDash size={16} color="white" />
+            Borç Ekle
+          </button>
           <button
             onClick={handlePayment}
             className="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-white text-sm shadow-lg transition-all active:scale-[0.97]"

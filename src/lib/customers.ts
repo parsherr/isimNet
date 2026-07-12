@@ -33,11 +33,19 @@ export interface Payment {
   description: string;
 }
 
+export interface Debt {
+  id: string;
+  customerId: string;
+  date: string;
+  amount: number;
+  description: string;
+}
+
 export interface ActivityItem {
-  type: "sale" | "payment";
+  type: "sale" | "payment" | "debt";
   date: string;
   runningBalance: number;
-  data: Sale | Payment;
+  data: Sale | Payment | Debt;
 }
 
 export type NewCustomerFormData = Omit<Customer, "id" | "createdAt" | "updatedAt">;
@@ -50,18 +58,20 @@ export interface SaleItemDraft {
   priceOverride?: number;
 }
 
-export function buildActivityFeed(sales: Sale[], payments: Payment[]): ActivityItem[] {
-  type RawItem = { type: "sale" | "payment"; date: string; data: Sale | Payment };
+export function buildActivityFeed(sales: Sale[], payments: Payment[], debts: Debt[] = []): ActivityItem[] {
+  type RawItem = { type: "sale" | "payment" | "debt"; date: string; data: Sale | Payment | Debt };
 
   const raw: RawItem[] = [
     ...sales.map((s) => ({ type: "sale" as const, date: s.date, data: s })),
     ...payments.map((p) => ({ type: "payment" as const, date: p.date, data: p })),
+    ...debts.map((d) => ({ type: "debt" as const, date: d.date, data: d })),
   ].sort((a, b) => a.date.localeCompare(b.date));
 
   let balance = 0;
   const items: ActivityItem[] = raw.map((r) => {
     if (r.type === "sale") balance += (r.data as Sale).total;
-    else balance -= (r.data as Payment).amount;
+    else if (r.type === "payment") balance -= (r.data as Payment).amount;
+    else balance -= (r.data as Debt).amount;
     return { type: r.type, date: r.date, runningBalance: balance, data: r.data };
   });
 

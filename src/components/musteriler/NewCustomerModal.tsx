@@ -7,17 +7,21 @@ interface NewCustomerModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: NewCustomerFormData) => void;
+  initialData?: NewCustomerFormData;
+  title?: string;
 }
 
 const emptyForm: NewCustomerFormData = { name: "", phone: "", note: "" };
 
-export default function NewCustomerModal({ open, onClose, onSubmit }: NewCustomerModalProps) {
-  const [form, setForm] = useState<NewCustomerFormData>(emptyForm);
+export default function NewCustomerModal({ open, onClose, onSubmit, initialData, title }: NewCustomerModalProps) {
+  const [form, setForm] = useState<NewCustomerFormData>(initialData ?? emptyForm);
   const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
 
   useEffect(() => {
+    if (open) setForm(initialData ?? emptyForm);
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   if (!open) return null;
@@ -47,7 +51,7 @@ export default function NewCustomerModal({ open, onClose, onSubmit }: NewCustome
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-3xl px-5 pt-5 pb-8">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
-        <h2 className="text-lg font-semibold text-gray-900 mb-5">Yeni Müşteri</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-5">{title ?? "Yeni Müşteri"}</h2>
         <div className="flex flex-col gap-3">
           <div>
             <input type="text" placeholder="Ad Soyad *" value={form.name}
