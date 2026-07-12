@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Sale, SaleItem, SaleItemDraft } from "@/lib/customers";
 import { formatCurrency } from "@/lib/format";
+import { formatCurrencyDisplay, parseCurrencyDisplay } from "@/lib/currencyInput";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 import { useData } from "@/context/DataContext";
 
 interface NewSaleModalProps {
@@ -18,6 +20,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<SaleItemDraft[]>([]);
+  const [priceDisplays, setPriceDisplays] = useState<Record<string, string>>({});
   const [vatRate, setVatRate] = useState<0 | 10 | 20>(20);
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({});
 
@@ -27,7 +30,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
   }, [open]);
 
   function resetAndClose() {
-    setStep(1); setSelectedIds([]); setDrafts([]); setVatRate(20); setStepErrors({});
+    setStep(1); setSelectedIds([]); setDrafts([]); setPriceDisplays({}); setVatRate(20); setStepErrors({});
     onClose();
   }
 
@@ -44,6 +47,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
       return { productId: pid, productName: p.name, listPrice: p.price, quantity: 1, priceOverride: undefined };
     });
     setDrafts(newDrafts);
+    setPriceDisplays({});
     setStep(2);
   }
 
@@ -142,10 +146,15 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
                     </div>
                     <div className="flex-1">
                       <label className="text-xs text-gray-500 mb-1 block">Birim Fiyat (₺)</label>
-                      <input type="number" inputMode="decimal" placeholder={String(d.listPrice)}
-                        value={d.priceOverride ?? ""}
-                        onChange={(e) => updateDraft(d.productId, "priceOverride", e.target.value ? parseFloat(e.target.value) : undefined)}
-                        className={`${inputClass} w-full`} />
+                      <CurrencyInput
+                        value={priceDisplays[d.productId] ?? ""}
+                        onChange={(display, numeric) => {
+                          setPriceDisplays(prev => ({ ...prev, [d.productId]: display }));
+                          updateDraft(d.productId, "priceOverride", display ? numeric : undefined);
+                        }}
+                        placeholder={formatCurrencyDisplay(String(d.listPrice))}
+                        className={`${inputClass} w-full`}
+                      />
                       {stepErrors[`price-${d.productId}`] && <p className="text-red-500 text-xs mt-1">{stepErrors[`price-${d.productId}`]}</p>}
                     </div>
                   </div>

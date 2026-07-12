@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/format";
+import { parseCurrencyDisplay } from "@/lib/currencyInput";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 interface NewPaymentModalProps {
   open: boolean;
@@ -11,25 +13,26 @@ interface NewPaymentModalProps {
 }
 
 export default function NewPaymentModal({ open, onClose, onSubmit, maxAmount }: NewPaymentModalProps) {
-  const [amount, setAmount] = useState("");
+  const [amountDisplay, setAmountDisplay] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (open) { setAmountDisplay(""); setDescription(""); setError(""); }
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   if (!open) return null;
 
-  const numAmount = parseFloat(amount) || 0;
+  const numAmount = parseCurrencyDisplay(amountDisplay);
   const isOverMax = maxAmount !== undefined && numAmount > maxAmount && numAmount > 0;
 
   function handleSubmit() {
     if (numAmount <= 0) { setError("Geçerli tutar giriniz"); return; }
     setError("");
     onSubmit({ amount: numAmount, description: description.trim() });
-    setAmount("");
+    setAmountDisplay("");
     setDescription("");
     onClose();
   }
@@ -45,9 +48,12 @@ export default function NewPaymentModal({ open, onClose, onSubmit, maxAmount }: 
         <h2 className="text-lg font-semibold text-gray-900 mb-5">Tahsilat Al</h2>
         <div className="flex flex-col gap-3">
           <div>
-            <input type="number" inputMode="decimal" placeholder="Tutar (₺) *"
-              value={amount} onChange={(e) => setAmount(e.target.value)}
-              className={inputClass} />
+            <CurrencyInput
+              value={amountDisplay}
+              onChange={(display) => setAmountDisplay(display)}
+              placeholder="Tutar (₺) *"
+              className={inputClass}
+            />
             {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
             {isOverMax && (
               <p className="text-amber-600 text-xs mt-1 ml-1">

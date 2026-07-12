@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { parseCurrencyDisplay } from "@/lib/currencyInput";
+import CurrencyInput from "@/components/ui/CurrencyInput";
 
 interface NewDebtModalProps {
   open: boolean;
@@ -9,19 +11,19 @@ interface NewDebtModalProps {
 }
 
 export default function NewDebtModal({ open, onClose, onSubmit }: NewDebtModalProps) {
-  const [amount, setAmount] = useState("");
+  const [amountDisplay, setAmountDisplay] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (open) { setAmount(""); setDescription(""); setError(""); }
+    if (open) { setAmountDisplay(""); setDescription(""); setError(""); }
     document.body.style.overflow = open ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   if (!open) return null;
 
-  const numAmount = parseFloat(amount) || 0;
+  const numAmount = parseCurrencyDisplay(amountDisplay);
 
   function handleSubmit() {
     if (numAmount <= 0) { setError("Geçerli tutar giriniz"); return; }
@@ -42,12 +44,10 @@ export default function NewDebtModal({ open, onClose, onSubmit }: NewDebtModalPr
         <p className="text-xs text-gray-400 mb-5">Müşteriye olan borcunuzu kaydedin</p>
         <div className="flex flex-col gap-3">
           <div>
-            <input
-              type="number"
-              inputMode="decimal"
+            <CurrencyInput
+              value={amountDisplay}
+              onChange={(display) => setAmountDisplay(display)}
               placeholder="Tutar (₺) *"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
               className={inputClass}
             />
             {error && <p className="text-red-500 text-xs mt-1 ml-1">{error}</p>}
