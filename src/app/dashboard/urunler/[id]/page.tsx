@@ -20,6 +20,8 @@ export default function UrunDetayPage({
 
   const [isEditing, setIsEditing] = useState(false);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [stockModal, setStockModal] = useState<"add" | "remove" | null>(null);
+  const [stockAmount, setStockAmount] = useState("");
   const [editForm, setEditForm] = useState(
     product
       ? { name: product.name, description: product.description, price: product.price, stock: product.stock }
@@ -56,6 +58,18 @@ export default function UrunDetayPage({
   function handleDelete() {
     deleteProduct(id);
     router.push("/dashboard/urunler");
+  }
+
+  function handleStockConfirm() {
+    const amount = parseInt(stockAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    const newStock =
+      stockModal === "add"
+        ? product!.stock + amount
+        : Math.max(0, product!.stock - amount);
+    updateProduct(id, { stock: newStock });
+    setStockModal(null);
+    setStockAmount("");
   }
 
   return (
@@ -113,9 +127,67 @@ export default function UrunDetayPage({
             </div>
           </div>
         ) : (
-          <div className="flex gap-3">
-            <button onClick={() => setIsEditing(true)} className="flex-1 py-3.5 rounded-2xl font-semibold text-indigo-600 text-sm bg-white border border-indigo-200 active:scale-[0.98]" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>Düzenle</button>
-            <button onClick={() => setIsConfirmingDelete(true)} className="flex-1 py-3.5 rounded-2xl font-semibold text-red-500 text-sm bg-white border border-red-200 active:scale-[0.98]" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>Sil</button>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setStockAmount(""); setStockModal("add"); }}
+                className="flex-1 py-3.5 rounded-2xl font-semibold text-emerald-700 text-sm bg-white border border-emerald-200 active:scale-[0.98]"
+                style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}
+              >
+                Stok Ekle
+              </button>
+              <button
+                onClick={() => { setStockAmount(""); setStockModal("remove"); }}
+                className="flex-1 py-3.5 rounded-2xl font-semibold text-orange-600 text-sm bg-white border border-orange-200 active:scale-[0.98]"
+                style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}
+              >
+                Stok Çıkart
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setIsEditing(true)} className="flex-1 py-3.5 rounded-2xl font-semibold text-indigo-600 text-sm bg-white border border-indigo-200 active:scale-[0.98]" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>Düzenle</button>
+              <button onClick={() => setIsConfirmingDelete(true)} className="flex-1 py-3.5 rounded-2xl font-semibold text-red-500 text-sm bg-white border border-red-200 active:scale-[0.98]" style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.07)" }}>Sil</button>
+            </div>
+          </div>
+        )}
+
+        {/* Stock Modal */}
+        {stockModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50">
+            <div className="bg-white rounded-t-3xl p-6 w-full max-w-md space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {stockModal === "add" ? "Stok Ekle" : "Stok Çıkart"}
+              </h3>
+              <p className="text-sm text-gray-500">
+                Mevcut stok: <strong className="text-gray-900">{product.stock} adet</strong>
+              </p>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                value={stockAmount}
+                onChange={(e) => setStockAmount(e.target.value)}
+                placeholder="Miktar girin"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-gray-900 text-lg focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                autoFocus
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setStockModal(null); setStockAmount(""); }}
+                  className="flex-1 py-3 border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleStockConfirm}
+                  className={`flex-1 py-3 text-white rounded-xl font-semibold text-sm ${
+                    stockModal === "add" ? "bg-emerald-600" : "bg-orange-500"
+                  }`}
+                >
+                  Onayla
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
