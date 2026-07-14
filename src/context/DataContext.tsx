@@ -10,7 +10,6 @@ import {
   ActivityItem, buildActivityFeed,
 } from "@/lib/customers";
 import { Product, NewProductFormData } from "@/lib/products";
-import { readDriveFile, writeDriveFile } from "@/lib/drive";
 
 // ── LocalStorage anahtarları ──────────────────────────────────────────────────
 const LS = {
@@ -103,6 +102,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
+  // GitHub blob SHA'larını önbellekle — her dosya için son bilinen SHA
+  const shaCache = useRef<Record<string, string | null>>({});
+
   // ── Yardımcı: localStorage + state birlikte güncelle ─────────────────────
   const setC = useCallback((fn: (prev: Customer[]) => Customer[]) => {
     setCustomers(prev => { const next = fn(prev); lsWrite(LS.customers, next); return next; });
@@ -120,93 +122,99 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setDebts(prev => { const next = fn(prev); lsWrite(LS.debts, next); return next; });
   }, []);
 
-  // ── Mount: Drive'dan senkronize et ───────────────────────────────────────
+  // ── Mount: GitHub'dan senkronize et ──────────────────────────────────────
   useEffect(() => {
-    if (status !== "authenticated" || !session?.accessToken) return;
-    const token = session.accessToken;
+    if (status !== "authenticated" || !session?.userId) return;
 
     const hasLocal =
       lsRead(LS.customers) !== null ||
       lsRead(LS.products)  !== null;
 
-    // localStorage boşsa skeleton göster, doluysa hemen isLoading=false
     if (!hasLocal) {
       setIsLoading(true);
     } else {
       setIsLoading(false);
     }
 
-    Promise.all([
-      readDriveFile<Customer>(token, "customers.json"),
-      readDriveFile<Product>(token,  "products.json"),
-      readDriveFile<Sale>(token,     "sales.json"),
-      readDriveFile<Payment>(token,  "payments.json"),
-      readDriveFile<Debt>(token,     "debts.json"),
-    ]).then(([c, p, s, pay, d]) => {
-      const finalC   = c   ?? (hasLocal ? stateRef.current.customers : []);
-      const finalP   = p   ?? (hasLocal ? stateRef.current.products  : []);
-      const finalS   = s   ?? (hasLocal ? stateRef.current.sales     : []);
-      const finalPay = pay ?? (hasLocal ? stateRef.current.payments  : []);
-      const finalD   = d   ?? (hasLocal ? stateRef.current.debts     : []);
+    fetch("/api/sync")
+      .then(res => res.ok ? res.json() : null)
+      .then(json => {
+        if (!json) {
+          setIsLoading(false);
+          return;
+        }
 
-      // Müşterisi silinmiş orphan kayıtları temizle
-      const cIds = new Set(finalC.map(x => x.id));
-      const cleanS   = finalS.filter(s => cIds.has(s.customerId));
-      const cleanPay = finalPay.filter(p => cIds.has(p.customerId));
-      const cleanD   = finalD.filter(d => cIds.has(d.customerId));
+        const { shas, ...remote } = json;
 
-      setCustomers(finalC);    lsWrite(LS.customers, finalC);
-      setProducts(finalP);     lsWrite(LS.products,  finalP);
-      setSales(cleanS);        lsWrite(LS.sales,     cleanS);
-      setPayments(cleanPay);   lsWrite(LS.payments,  cleanPay);
-      setDebts(cleanD);        lsWrite(LS.debts,     cleanD);
-      setIsLoading(false);
-    }).catch(() => {
-      // Drive erişilemiyorsa localStorage'daki veri yeterli
-      setIsLoading(false);
-    });
+        // SHA önbelleğini güncelle
+        if (shas) shaCache.current = shas;
+
+        const finalC   = (remote.customers as Customer[] | null)   ?? (hasLocal ? stateRef.current.customers : []);
+        const finalP   = (remote.products  as Product[]  | null)   ?? (hasLocal ? stateRef.current.products  : []);
+        const finalS   = (remote.sales     as Sale[]     | null)   ?? (hasLocal ? stateRef.current.sales     : []);
+        const finalPay = (remote.payments  as Payment[]  | null)   ?? (hasLocal ? stateRef.current.payments  : []);
+        const finalD   = (remote.debts     as Debt[]     | null)   ?? (hasLocal ? stateRef.current.debts     : []);
+
+        // Müşterisi silinmiş orphan kayıtları temizle
+        const cIds = new Set(finalC.map(x => x.id));
+        const cleanS   = finalS.filter(s => cIds.has(s.customerId));
+        const cleanPay = finalPay.filter(p => cIds.has(p.customerId));
+        const cleanD   = finalD.filter(d => cIds.has(d.customerId));
+
+        setCustomers(finalC);    lsWrite(LS.customers, finalC);
+        setProducts(finalP);     lsWrite(LS.products,  finalP);
+        setSales(cleanS);        lsWrite(LS.sales,     cleanS);
+        setPayments(cleanPay);   lsWrite(LS.payments,  cleanPay);
+        setDebts(cleanD);        lsWrite(LS.debts,     cleanD);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        // GitHub erişilemiyorsa localStorage'daki veri yeterli
+        setIsLoading(false);
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, session?.accessToken]);
+  }, [status, session?.userId]);
 
-  // ── Drive'a yaz (manuel veya uygulama kapanışında) ───────────────────────
+  // ── GitHub'a yaz (manuel veya uygulama kapanışında) ──────────────────────
   const syncToDrive = useCallback(async () => {
-    const token = sessionRef.current?.accessToken;
-    if (!token) return;
+    if (!sessionRef.current?.userId) return;
     const { customers, products, sales, payments, debts } = stateRef.current;
     setIsSyncing(true);
     try {
-      await Promise.all([
-        writeDriveFile(token, "customers.json", customers),
-        writeDriveFile(token, "products.json",  products),
-        writeDriveFile(token, "sales.json",     sales),
-        writeDriveFile(token, "payments.json",  payments),
-        writeDriveFile(token, "debts.json",     debts),
-      ]);
-      const now = new Date();
-      setLastSyncTime(now);
-      localStorage.setItem(LS.lastSync, now.toISOString());
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customers, products, sales, payments, debts, shas: shaCache.current }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.shas) shaCache.current = json.shas;
+        const now = new Date();
+        setLastSyncTime(now);
+        localStorage.setItem(LS.lastSync, now.toISOString());
+      }
     } finally {
       setIsSyncing(false);
     }
   }, []);
 
   const restoreFromDrive = useCallback(async () => {
-    const token = sessionRef.current?.accessToken;
-    if (!token) return;
+    if (!sessionRef.current?.userId) return;
     setIsLoading(true);
     try {
-      const [c, p, s, pay, d] = await Promise.all([
-        readDriveFile<Customer>(token, "customers.json"),
-        readDriveFile<Product>(token,  "products.json"),
-        readDriveFile<Sale>(token,     "sales.json"),
-        readDriveFile<Payment>(token,  "payments.json"),
-        readDriveFile<Debt>(token,     "debts.json"),
-      ]);
-      const finalC   = c   ?? [];
-      const finalP   = p   ?? [];
-      const finalS   = s   ?? [];
-      const finalPay = pay ?? [];
-      const finalD   = d   ?? [];
+      const res = await fetch("/api/sync");
+      if (!res.ok) return;
+      const json = await res.json();
+      const { shas, ...remote } = json;
+
+      if (shas) shaCache.current = shas;
+
+      const finalC   = (remote.customers as Customer[]) ?? [];
+      const finalP   = (remote.products  as Product[])  ?? [];
+      const finalS   = (remote.sales     as Sale[])     ?? [];
+      const finalPay = (remote.payments  as Payment[])  ?? [];
+      const finalD   = (remote.debts     as Debt[])     ?? [];
+
       setCustomers(finalC);   lsWrite(LS.customers, finalC);
       setProducts(finalP);    lsWrite(LS.products,  finalP);
       setSales(finalS);       lsWrite(LS.sales,     finalS);
@@ -217,19 +225,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // ── Uygulama kapanınca Drive'a yaz ───────────────────────────────────────
+  // ── Uygulama kapanınca GitHub'a yaz ──────────────────────────────────────
   useEffect(() => {
     function onVisibilityHide() {
       if (document.visibilityState === "hidden") {
-        const token = sessionRef.current?.accessToken;
-        if (!token) return;
-        // Drive API multipart kabul etmiyor, navigator.sendBeacon kullanamayız.
-        // Bunun yerine keepalive fetch kullanıyoruz:
+        if (!sessionRef.current?.userId) return;
         const { customers, products, sales, payments, debts } = stateRef.current;
-        const body = JSON.stringify({ customers, products, sales, payments, debts });
+        const body = JSON.stringify({ customers, products, sales, payments, debts, shas: shaCache.current });
         fetch("/api/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          headers: { "Content-Type": "application/json" },
           body,
           keepalive: true,
         }).catch(() => {/* best-effort */});
@@ -239,10 +244,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVisibilityHide);
   }, []);
 
-  // ── Periyodik sync (her 5 dakikada bir) ──────────────────────────────────
+  // ── Periyodik sync (her 10 dakikada bir) ─────────────────────────────────
   useEffect(() => {
     if (status !== "authenticated") return;
-    const id = setInterval(() => syncToDrive(), 5 * 60 * 1000);
+    const id = setInterval(() => syncToDrive(), 10 * 60 * 1000);
     return () => clearInterval(id);
   }, [status, syncToDrive]);
 
@@ -334,15 +339,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSales([]);     lsWrite(LS.sales,     []);
     setPayments([]);  lsWrite(LS.payments,  []);
     setDebts([]);     lsWrite(LS.debts,     []);
-    const token = sessionRef.current?.accessToken;
-    if (token) {
-      await Promise.all([
-        writeDriveFile(token, "customers.json", []),
-        writeDriveFile(token, "products.json",  []),
-        writeDriveFile(token, "sales.json",     []),
-        writeDriveFile(token, "payments.json",  []),
-        writeDriveFile(token, "debts.json",     []),
-      ]).catch(console.error);
+    if (sessionRef.current?.userId) {
+      await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customers: [], products: [], sales: [], payments: [], debts: [],
+          shas: shaCache.current,
+        }),
+      }).catch(console.error);
     }
   }, []);
 

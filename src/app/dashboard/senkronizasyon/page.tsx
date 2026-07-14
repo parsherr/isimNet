@@ -103,8 +103,8 @@ export default function SenkronizasyonPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-1">Google Drive Yedekleme</h1>
-          <p className="text-sm text-gray-500 text-center">Verileriniz Google Drive hesabınızda güvenle saklanır</p>
+          <h1 className="text-xl font-semibold text-gray-900 mb-1">GitHub Yedekleme</h1>
+          <p className="text-sm text-gray-500 text-center">Verileriniz GitHub repository&apos;sinde güvenle saklanır</p>
         </div>
 
         {/* Info card */}
@@ -117,13 +117,13 @@ export default function SenkronizasyonPage() {
           </div>
           {email && (
             <div className="px-5 py-4 flex items-center justify-between border-b border-gray-50">
-              <span className="text-sm text-gray-500">Google Hesabı</span>
+              <span className="text-sm text-gray-500">Google Hesabı (Giriş)</span>
               <span className="text-sm font-medium text-gray-800 truncate max-w-[200px]">{email}</span>
             </div>
           )}
           <div className="px-5 py-4 flex items-center justify-between">
             <span className="text-sm text-gray-500">Otomatik yedekleme</span>
-            <span className="text-xs bg-green-50 text-green-700 font-medium px-2.5 py-1 rounded-full">Her 5 dakikada bir</span>
+            <span className="text-xs bg-green-50 text-green-700 font-medium px-2.5 py-1 rounded-full">Her 10 dakikada bir</span>
           </div>
         </div>
 
@@ -153,7 +153,7 @@ export default function SenkronizasyonPage() {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="#16A34A" className="w-5 h-5 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
-            <span className="text-sm text-green-700 font-medium">Veriler Google Drive&apos;a yedeklendi.</span>
+            <span className="text-sm text-green-700 font-medium">Veriler GitHub&apos;a yedeklendi.</span>
           </div>
         )}
         {syncStatus === "error" && (
@@ -169,7 +169,7 @@ export default function SenkronizasyonPage() {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="#16A34A" className="w-5 h-5 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
             </svg>
-            <span className="text-sm text-green-700 font-medium">Veriler Drive&apos;dan başarıyla geri yüklendi.</span>
+            <span className="text-sm text-green-700 font-medium">Veriler GitHub&apos;dan başarıyla geri yüklendi.</span>
           </div>
         )}
         {restoreStatus === "error" && (
@@ -177,7 +177,7 @@ export default function SenkronizasyonPage() {
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="#DC2626" className="w-5 h-5 shrink-0">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
-            <span className="text-sm text-red-700 font-medium">Geri yükleme başarısız. Drive&apos;da veri bulunamadı.</span>
+            <span className="text-sm text-red-700 font-medium">Geri yükleme başarısız. GitHub&apos;da veri bulunamadı.</span>
           </div>
         )}
 
@@ -225,7 +225,7 @@ export default function SenkronizasyonPage() {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              Drive&apos;dan Geri Yükle
+              GitHub&apos;dan Geri Yükle
             </>
           )}
         </button>
@@ -235,9 +235,9 @@ export default function SenkronizasyonPage() {
       {showRestoreConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-6 sm:pb-0">
           <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-            <h2 className="text-base font-semibold text-gray-900 mb-2">Drive&apos;dan Geri Yükle</h2>
+            <h2 className="text-base font-semibold text-gray-900 mb-2">GitHub&apos;dan Geri Yükle</h2>
             <p className="text-sm text-gray-500 mb-6">
-              Mevcut verilerinizin üzerine Drive&apos;daki veriler yazılacak. Bu işlem geri alınamaz.
+              Mevcut verilerinizin üzerine GitHub&apos;daki veriler yazılacak. Bu işlem geri alınamaz.
             </p>
             <div className="flex gap-3">
               <button

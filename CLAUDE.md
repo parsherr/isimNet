@@ -24,7 +24,7 @@ Test altyapısı henüz kurulmamış.
 - **Stil:** Tailwind CSS v4
 - **Host:** Vercel (serverless)
 - **Auth:** NextAuth.js v5 (beta) — Google OAuth
-- **Depolama:** localStorage (önbellek) + Google Drive API (kalıcı, kullanıcı başına ayrı JSON dosyaları)
+- **Depolama:** localStorage (önbellek) + GitHub Contents API (kalıcı, kullanıcı başına `users/{userId}/` klasörü içinde ayrı JSON dosyaları)
 
 ## Dizin Yapısı
 
@@ -33,23 +33,30 @@ src/
   app/
     api/
       auth/[...nextauth]/  # NextAuth route handler
-      sync/                # Google Drive senkronizasyon (GET: yükle, POST: kaydet)
+      sync/                # Google Drive senkronizasyon (POST: kaydet)
     dashboard/             # Ana ekran — modül kartları
-    dashboard/musteriler/  # Müşteri listesi + detay
-    dashboard/urunler/     # Ürün listesi + detay
+    dashboard/musteriler/  # Müşteri listesi + [id] detay
+    dashboard/urunler/     # Ürün listesi + [id] detay
     dashboard/raporlar/    # Raporlar ve istatistikler
+    dashboard/senkronizasyon/  # Manuel sync / veri yönetimi
+  components/
+    musteriler/            # Müşteri bileşenleri (modaller, kartlar, feed)
+    urunler/               # Ürün bileşenleri (modaller, kartlar)
+    ui/                    # Paylaşılan UI (CurrencyInput vb.)
+    Header.tsx / MenuCard.tsx / SignInButton.tsx
   lib/
-    drive.ts               # Drive API yardımcıları (readDriveFile, writeDriveFile)
+    github.ts              # GitHub Contents API yardımcıları (readGitHubFile, writeGitHubFile)
     auth.ts                # NextAuth yapılandırması (handlers, auth, signIn/Out)
-    customers.ts           # Customer tipleri + buildActivityFeed
-    products.ts            # Product tipleri + yardımcılar
-    format.ts              # Para birimi formatlama
+    customers.ts           # Customer, Sale, Payment, Debt tipleri + buildActivityFeed
+    products.ts            # Product tipleri
+    format.ts              # formatCurrency (tr-TR, TRY)
+    currencyInput.ts       # CurrencyInput bileşeni için yardımcılar
     seedData.ts            # Geliştirme için örnek veri
   context/
     DataContext.tsx        # Global state — useData() hook'u, tüm CRUD
   types/
     next-auth.d.ts         # Session tipini genişletir (accessToken)
-  middleware.ts            # NextAuth oturum koruması
+  middleware.ts            # NextAuth oturum koruması (/dashboard altı)
 docs/
   proje-dokumani.md        # Tam proje dokümanı
 ```
@@ -63,6 +70,8 @@ docs/
 - Light / Dark mod desteği (sistem ayarına göre otomatik)
 - Büyük dokunma alanları, tek elle kullanım
 
+Modal ve liste bileşenleri `src/components/musteriler/` ve `src/components/urunler/` altında toplanmıştır. `src/app/dashboard/` altındaki sayfa dosyaları yalnızca layout ve bu bileşenlerin bağlamasını içerir; iş mantığı bileşenlerin içindedir.
+
 ## Modüller
 
 | Modül | Sayfa | Açıklama |
@@ -74,26 +83,35 @@ docs/
 | Ürün Listesi | `/dashboard/urunler` | Arama + stok + fiyat kartları |
 | Ürün Detay | `/dashboard/urunler/[id]` | Düzenle, sil, istatistik |
 | Raporlar | `/dashboard/raporlar` | Toplam alacak, mal varlığı, bu ay satış |
+| Senkronizasyon | `/dashboard/senkronizasyon` | Manuel Drive sync, veri geri yükleme, tüm veriyi sıfırlama |
 
 ## Veri Akışı
 
-`DataContext` (`src/context/DataContext.tsx`) tüm state'i yönetir ve client component'lara `useData()` hook'u ile erişim sağlar. İki katmanlı önbellekleme:
+`DataContext` (`src/context/DataContext.tsx`) tüm state'i yönetir ve client component'lara `useData()` hook'u ile erişim sağlar. `useData()` kullanan her bileşen `"use client"` direktifine sahip olmalıdır. İki katmanlı önbellekleme:
 
 1. **localStorage** — uygulama açıldığında anında yüklenir, her değişiklikte yazılır.
-2. **Google Drive** — oturum varsa ilk yüklemede Drive'dan çeker (`/api/sync` GET), her mutasyonda Drive'a yazar (`/api/sync` POST).
+2. **GitHub** — oturum varsa mount'ta `GET /api/sync` ile GitHub'dan çeker; GitHub verisi localStorage'ın üzerine yazılır (GitHub kazanır). Her 10 dakikada bir ve uygulama kapanışında `POST /api/sync` ile GitHub'a yazar. SHA önbelleği (`shaCache` ref) dosya güncellemelerinde kullanılır.
 
 `middleware.ts` `/dashboard` altını korur; oturumu olmayan kullanıcıyı `/` landing sayfasına yönlendirir.
 
-`src/lib/drive.ts` — Drive API'ye erişen düşük seviye yardımcılar (`readDriveFile`, `writeDriveFile`).  
+`src/lib/github.ts` — GitHub Contents API'ye erişen düşük seviye yardımcılar (`readGitHubFile`, `writeGitHubFile`). Env değişkenleri (`GITHUB_TOKEN`, `GITHUB_REPO_OWNER`, `GITHUB_REPO_NAME`, `GITHUB_BRANCH`) üzerinden yapılandırılır. Her kullanıcının verileri `users/{session.userId}/` klasöründe tutulur; SHA önbelleği `DataContext` içindeki `shaCache` ref'inde saklanır.  
 `src/lib/customers.ts` / `src/lib/products.ts` — tip tanımları ve `buildActivityFeed` gibi saf hesaplama fonksiyonları.
+
+### ActivityItem ve hareket geçmişi
+
+`Sale`, `Payment`, `Debt` ayrı tiplerdir. `buildActivityFeed(sales, payments, debts)` bunları tarihe göre sıralayıp `ActivityItem[]` döner; her öğenin `type: "sale" | "payment" | "debt"` ve birikimli bakiye (`runningBalance`) alanı vardır. Hareket geçmişi oluştururken doğrudan bu fonksiyonu kullan, elle filtreleme/sıralama yapma.
 
 ### Ortam Değişkenleri
 
 ```
-GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_ID          # Google OAuth (auth için)
 GOOGLE_CLIENT_SECRET
 AUTH_SECRET
 NEXTAUTH_URL
+GITHUB_TOKEN              # PAT — contents: read+write izni gerekli
+GITHUB_REPO_OWNER         # Repository sahibinin kullanıcı adı
+GITHUB_REPO_NAME          # Veri repository adı
+GITHUB_BRANCH             # Hedef branch (varsayılan: main)
 ```
 
 ## İş Kuralları

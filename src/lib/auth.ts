@@ -28,8 +28,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope:
-            "openid email profile https://www.googleapis.com/auth/drive.appdata",
+          scope: "openid email profile",
           access_type: "offline",
           prompt: "consent",
         },
@@ -37,12 +36,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      // First sign-in: persist all tokens
+    async jwt({ token, account, profile }) {
+      // First sign-in: persist tokens and stable Google user ID
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
         token.expiresAt = account.expires_at; // seconds since epoch from Google
+        token.userId = profile?.sub ?? account.providerAccountId;
         return token;
       }
 
@@ -66,6 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
+      session.userId = token.userId as string;
       if (token.error) {
         session.error = token.error as string;
       }
