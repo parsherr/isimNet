@@ -3,9 +3,10 @@ import ActivityFeedItem from "./ActivityFeedItem";
 
 interface ActivityFeedProps {
   items: ActivityItem[];
+  onEdit?: (item: ActivityItem) => void;
 }
 
-export default function ActivityFeed({ items }: ActivityFeedProps) {
+export default function ActivityFeed({ items, onEdit }: ActivityFeedProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -28,7 +29,7 @@ export default function ActivityFeed({ items }: ActivityFeedProps) {
   return (
     <div className="flex flex-col gap-3">
       {items.map((item, index) => (
-        <ActivityFeedItem key={`${item.type}-${item.date}-${index}`} item={item} />
+        <ActivityFeedItem key={`${item.type}-${item.date}-${index}`} item={item} onEdit={onEdit} />
       ))}
     </div>
   );

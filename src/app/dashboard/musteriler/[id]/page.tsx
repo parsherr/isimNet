@@ -11,7 +11,10 @@ import NewSaleModal from "@/components/musteriler/NewSaleModal";
 import NewPaymentModal from "@/components/musteriler/NewPaymentModal";
 import NewCustomerModal from "@/components/musteriler/NewCustomerModal";
 import NewDebtModal from "@/components/musteriler/NewDebtModal";
-import { Sale, Debt, buildActivityFeed, NewCustomerFormData } from "@/lib/customers";
+import EditSaleModal from "@/components/musteriler/EditSaleModal";
+import EditPaymentModal from "@/components/musteriler/EditPaymentModal";
+import EditDebtModal from "@/components/musteriler/EditDebtModal";
+import { Sale, Payment, Debt, ActivityItem, buildActivityFeed, NewCustomerFormData } from "@/lib/customers";
 import { useData } from "@/context/DataContext";
 
 export default function MusteriDetayPage({
@@ -21,7 +24,7 @@ export default function MusteriDetayPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { customers, sales, payments, debts, addSale, addPayment, addDebt, getCustomerTotals, updateCustomer, deleteCustomer } = useData();
+  const { customers, sales, payments, debts, addSale, updateSale, addPayment, updatePayment, addDebt, updateDebt, getCustomerTotals, updateCustomer, deleteCustomer } = useData();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
@@ -35,6 +38,7 @@ export default function MusteriDetayPage({
   const [isDebtModalOpen, setIsDebtModalOpen]       = useState(false);
   const [isEditModalOpen, setIsEditModalOpen]       = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm]   = useState(false);
+  const [editTarget, setEditTarget] = useState<ActivityItem | null>(null);
 
   const { totalRevenue, totalCollected, currentDebt, myDebt } = getCustomerTotals(id);
 
@@ -143,7 +147,7 @@ export default function MusteriDetayPage({
 
         <div>
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Hareket Geçmişi</h2>
-          <ActivityFeed items={activityFeed} />
+          <ActivityFeed items={activityFeed} onEdit={item => setEditTarget(item)} />
         </div>
       </main>
 
@@ -160,6 +164,32 @@ export default function MusteriDetayPage({
         initialData={{ name: customer.name, phone: customer.phone, note: customer.note }}
         title="Müşteriyi Düzenle"
       />
+
+      {editTarget?.type === "sale" && (
+        <EditSaleModal
+          open
+          onClose={() => setEditTarget(null)}
+          initialSale={editTarget.data as Sale}
+          onSubmit={data => { updateSale((editTarget.data as Sale).id, data); setEditTarget(null); }}
+        />
+      )}
+      {editTarget?.type === "payment" && (
+        <EditPaymentModal
+          open
+          onClose={() => setEditTarget(null)}
+          initialPayment={editTarget.data as Payment}
+          maxAmount={currentDebt}
+          onSubmit={data => { updatePayment((editTarget.data as Payment).id, data); setEditTarget(null); }}
+        />
+      )}
+      {editTarget?.type === "debt" && (
+        <EditDebtModal
+          open
+          onClose={() => setEditTarget(null)}
+          initialDebt={editTarget.data as Debt}
+          onSubmit={data => { updateDebt((editTarget.data as Debt).id, data); setEditTarget(null); }}
+        />
+      )}
 
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 px-4 pb-6 sm:pb-0">

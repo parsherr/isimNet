@@ -53,13 +53,16 @@ interface DataContextValue {
   deleteProduct: (id: string) => void;
 
   addSale:    (sale: Omit<Sale, "id">) => void;
+  updateSale: (id: string, data: Omit<Sale, "id" | "customerId">) => void;
   deleteSale: (id: string) => void;
 
   addPayment:    (payment: Omit<Payment, "id">) => void;
+  updatePayment: (id: string, data: Pick<Payment, "amount" | "description">) => void;
   deletePayment: (id: string) => void;
 
   debts:      Debt[];
   addDebt:    (debt: Omit<Debt, "id">) => void;
+  updateDebt: (id: string, data: Pick<Debt, "amount" | "description">) => void;
   deleteDebt: (id: string) => void;
 
   getCustomerTotals: (customerId: string) => {
@@ -301,6 +304,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }));
   }, [setS, setP]);
 
+  const updateSale = useCallback((id: string, data: Omit<Sale, "id" | "customerId">) => {
+    const oldSale = stateRef.current.sales.find(s => s.id === id);
+    if (!oldSale) return;
+    const now = new Date().toISOString();
+    // Stokları tek geçişte düzelt: eski miktarları geri ekle, yeni miktarları düş
+    setP(prev => prev.map(p => {
+      const oldItem = oldSale.items.find(i => i.productId === p.id);
+      const newItem = data.items.find(i => i.productId === p.id);
+      const restored = oldItem ? p.stock + oldItem.quantity : p.stock;
+      const applied  = newItem ? Math.max(0, restored - newItem.quantity) : restored;
+      if (restored === p.stock && applied === p.stock) return p;
+      return { ...p, stock: applied, updatedAt: now };
+    }));
+    setS(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
+  }, [setS, setP]);
+
   const deleteSale = useCallback((id: string) => {
     // Silinen satışın stoklarını geri yükle
     const sale = stateRef.current.sales.find(s => s.id === id);
@@ -320,6 +339,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setPay(prev => [newP, ...prev]);
   }, [setPay]);
 
+  const updatePayment = useCallback((id: string, data: Pick<Payment, "amount" | "description">) => {
+    setPay(prev => prev.map(p => p.id === id ? { ...p, ...data } : p));
+  }, [setPay]);
+
   const deletePayment = useCallback((id: string) => {
     setPay(prev => prev.filter(p => p.id !== id));
   }, [setPay]);
@@ -327,6 +350,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addDebt = useCallback((data: Omit<Debt, "id">) => {
     const newD: Debt = { ...data, id: `d_${Date.now()}` };
     setD(prev => [newD, ...prev]);
+  }, [setD]);
+
+  const updateDebt = useCallback((id: string, data: Pick<Debt, "amount" | "description">) => {
+    setD(prev => prev.map(d => d.id === id ? { ...d, ...data } : d));
   }, [setD]);
 
   const deleteDebt = useCallback((id: string) => {
@@ -372,8 +399,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     isLoading, isSyncing, lastSyncTime,
     addCustomer, updateCustomer, deleteCustomer,
     addProduct, updateProduct, deleteProduct,
-    addSale, deleteSale, addPayment, deletePayment,
-    addDebt, deleteDebt,
+    addSale, updateSale, deleteSale, addPayment, updatePayment, deletePayment,
+    addDebt, updateDebt, deleteDebt,
     getCustomerTotals, getCustomerFeed,
     syncToDrive, restoreFromDrive, clearAllData,
   }), [
@@ -381,8 +408,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     isLoading, isSyncing, lastSyncTime,
     addCustomer, updateCustomer, deleteCustomer,
     addProduct, updateProduct, deleteProduct,
-    addSale, deleteSale, addPayment, deletePayment,
-    addDebt, deleteDebt,
+    addSale, updateSale, deleteSale, addPayment, updatePayment, deletePayment,
+    addDebt, updateDebt, deleteDebt,
     getCustomerTotals, getCustomerFeed,
     syncToDrive, restoreFromDrive, clearAllData,
   ]);
