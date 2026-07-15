@@ -42,16 +42,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const shas: Record<string, string | null> = body.shas ?? {};
 
-    const newShas = await Promise.all(
-      FILES.map((f: FileName) =>
-        writeGitHubFile(userId, `${f}.json`, body[f] ?? [], shas[f] ?? null)
-      )
-    );
-
     const updatedShas: Record<string, string | null> = {};
-    FILES.forEach((f, i) => {
-      updatedShas[f] = newShas[i];
-    });
+    for (const f of FILES) {
+      updatedShas[f] = await writeGitHubFile(userId, `${f}.json`, body[f] ?? [], shas[f] ?? null);
+    }
 
     return NextResponse.json({ ok: true, shas: updatedShas });
   } catch (e) {

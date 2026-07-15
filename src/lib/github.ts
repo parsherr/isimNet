@@ -55,7 +55,11 @@ export async function writeGitHubFile<T>(
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const err = await res.text().catch(() => "");
+    console.error(`writeGitHubFile failed [${res.status}]: ${path}`, err);
+    return null;
+  }
   const json = await res.json();
   return (json.content?.sha as string) ?? null;
 }

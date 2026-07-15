@@ -19,6 +19,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
   const { products } = useData();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [drafts, setDrafts] = useState<SaleItemDraft[]>([]);
   const [priceDisplays, setPriceDisplays] = useState<Record<string, string>>({});
   const [vatRate, setVatRate] = useState<0 | 10 | 20>(20);
@@ -30,7 +31,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
   }, [open]);
 
   function resetAndClose() {
-    setStep(1); setSelectedIds([]); setDrafts([]); setPriceDisplays({}); setVatRate(20); setStepErrors({});
+    setStep(1); setSelectedIds([]); setDrafts([]); setPriceDisplays({}); setVatRate(20); setStepErrors({}); setSearchQuery("");
     onClose();
   }
 
@@ -48,6 +49,7 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
     });
     setDrafts(newDrafts);
     setPriceDisplays({});
+    setSearchQuery("");
     setStep(2);
   }
 
@@ -110,7 +112,27 @@ export default function NewSaleModal({ open, onClose, onSubmit }: NewSaleModalPr
         <div className="flex-1 overflow-y-auto">
           {step === 1 && (
             <div className="flex flex-col gap-2 pb-2">
-              {products.map((p) => {
+              <div className="relative mb-1">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Ürün ara..."
+                  className="w-full bg-gray-100 dark:bg-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none placeholder-gray-400"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    aria-label="Aramayı temizle"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {products.filter((p) => p.name.toLowerCase().includes(searchQuery.toLowerCase())).map((p) => {
                 const selected = selectedIds.includes(p.id);
                 return (
                   <button key={p.id} onClick={() => toggleProduct(p.id)}
