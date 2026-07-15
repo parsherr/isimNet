@@ -14,9 +14,10 @@ Küçük ve orta ölçekli işletmeler için müşteri cari hesabı ve ürün st
 npm run dev      # Geliştirme sunucusu (localhost:3000)
 npm run build    # Production build
 npm run lint     # ESLint
+npm run test                              # Tüm testleri çalıştır (vitest)
+npm run test:coverage                     # Kapsam raporu ile testler
+npx vitest run src/__tests__/github.test.ts  # Tek test dosyası
 ```
-
-Test altyapısı henüz kurulmamış.
 
 ## Teknoloji
 
@@ -90,7 +91,10 @@ Modal ve liste bileşenleri `src/components/musteriler/` ve `src/components/urun
 `DataContext` (`src/context/DataContext.tsx`) tüm state'i yönetir ve client component'lara `useData()` hook'u ile erişim sağlar. `useData()` kullanan her bileşen `"use client"` direktifine sahip olmalıdır. İki katmanlı önbellekleme:
 
 1. **localStorage** — uygulama açıldığında anında yüklenir, her değişiklikte yazılır.
-2. **GitHub** — oturum varsa mount'ta `GET /api/sync` ile GitHub'dan çeker; GitHub verisi localStorage'ın üzerine yazılır (GitHub kazanır). Her 10 dakikada bir ve uygulama kapanışında `POST /api/sync` ile GitHub'a yazar. SHA önbelleği (`shaCache` ref) dosya güncellemelerinde kullanılır.
+2. **GitHub** — oturum varsa mount'ta `GET /api/sync` ile GitHub'dan çeker (`customers.json`, `products.json`); GitHub verisi localStorage'ın üzerine yazılır (GitHub kazanır). Her 10 dakikada bir ve uygulama kapanışında `POST /api/sync` ile GitHub'a yazar. SHA önbelleği (`shaCache` ref) dosya güncellemelerinde kullanılır.
+
+`GET /api/sync` — GitHub'dan tüm veriyi okur, `{ customers, products }` döner  
+`POST /api/sync` — Body: `{ customers, products }`, GitHub'a yazar
 
 `middleware.ts` `/dashboard` altını korur; oturumu olmayan kullanıcıyı `/` landing sayfasına yönlendirir.
 

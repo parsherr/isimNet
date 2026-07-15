@@ -105,23 +105,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const sessionRef = useRef(session);
   sessionRef.current = session;
 
-  // GitHub blob SHA'larını önbellekle — her dosya için son bilinen SHA
-  const shaCache = useRef<Record<string, string | null>>({});
+  // Tek SHA — data.json için
+  const shaRef = useRef<string | null>(null);
 
-  // ── Yardımcı: localStorage + state birlikte güncelle ─────────────────────
+  // Dirty tracking: veri değişmemişse sync'i atla
+  const mutationSeq = useRef(0);
+  const syncedSeq   = useRef(0);
+
+  // ── Yardımcı: localStorage + state + dirty flag birlikte güncelle ─────────
   const setC = useCallback((fn: (prev: Customer[]) => Customer[]) => {
+    mutationSeq.current += 1;
     setCustomers(prev => { const next = fn(prev); lsWrite(LS.customers, next); return next; });
   }, []);
   const setP = useCallback((fn: (prev: Product[]) => Product[]) => {
+    mutationSeq.current += 1;
     setProducts(prev => { const next = fn(prev); lsWrite(LS.products, next); return next; });
   }, []);
   const setS = useCallback((fn: (prev: Sale[]) => Sale[]) => {
+    mutationSeq.current += 1;
     setSales(prev => { const next = fn(prev); lsWrite(LS.sales, next); return next; });
   }, []);
   const setPay = useCallback((fn: (prev: Payment[]) => Payment[]) => {
+    mutationSeq.current += 1;
     setPayments(prev => { const next = fn(prev); lsWrite(LS.payments, next); return next; });
   }, []);
   const setD = useCallback((fn: (prev: Debt[]) => Debt[]) => {
+    mutationSeq.current += 1;
     setDebts(prev => { const next = fn(prev); lsWrite(LS.debts, next); return next; });
   }, []);
 
@@ -147,10 +156,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        const { shas, ...remote } = json;
+        const { sha, ...remote } = json;
 
-        // SHA önbelleğini güncelle
-        if (shas) shaCache.current = shas;
+        // Tek SHA'yı önbellekle
+        if (sha !== undefined) shaRef.current = sha;
 
         const finalC   = (remote.customers as Customer[] | null)   ?? (hasLocal ? stateRef.current.customers : []);
         const finalP   = (remote.products  as Product[]  | null)   ?? (hasLocal ? stateRef.current.products  : []);
@@ -169,6 +178,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setSales(cleanS);        lsWrite(LS.sales,     cleanS);
         setPayments(cleanPay);   lsWrite(LS.payments,  cleanPay);
         setDebts(cleanD);        lsWrite(LS.debts,     cleanD);
+
+        // GitHub'dan yüklenen veriyi "temiz" say
+        syncedSeq.current = mutationSeq.current;
         setIsLoading(false);
       })
       .catch(() => {
@@ -178,20 +190,25 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, session?.userId]);
 
-  // ── GitHub'a yaz (manuel veya uygulama kapanışında) ──────────────────────
+  // ── GitHub'a yaz ─────────────────────────────────────────────────────────
   const syncToDrive = useCallback(async () => {
     if (!sessionRef.current?.userId) return;
+
+    // Değişiklik yoksa atla
+    if (mutationSeq.current === syncedSeq.current) return;
+
     const { customers, products, sales, payments, debts } = stateRef.current;
     setIsSyncing(true);
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customers, products, sales, payments, debts, shas: shaCache.current }),
+        body: JSON.stringify({ customers, products, sales, payments, debts, sha: shaRef.current }),
       });
       if (res.ok) {
         const json = await res.json();
-        if (json.shas) shaCache.current = json.shas;
+        if (json.sha !== undefined) shaRef.current = json.sha;
+        syncedSeq.current = mutationSeq.current;
         const now = new Date();
         setLastSyncTime(now);
         localStorage.setItem(LS.lastSync, now.toISOString());
@@ -208,9 +225,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/sync");
       if (!res.ok) return;
       const json = await res.json();
-      const { shas, ...remote } = json;
+      const { sha, ...remote } = json;
 
-      if (shas) shaCache.current = shas;
+      if (sha !== undefined) shaRef.current = sha;
 
       const finalC   = (remote.customers as Customer[]) ?? [];
       const finalP   = (remote.products  as Product[])  ?? [];
@@ -223,34 +240,47 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSales(finalS);       lsWrite(LS.sales,     finalS);
       setPayments(finalPay);  lsWrite(LS.payments,  finalPay);
       setDebts(finalD);       lsWrite(LS.debts,     finalD);
+      syncedSeq.current = mutationSeq.current;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // ── Uygulama kapanınca GitHub'a yaz ──────────────────────────────────────
+  // ── Sekme gizlenince sync, görününce SHA yenile ───────────────────────────
   useEffect(() => {
-    function onVisibilityHide() {
+    function onVisibilityChange() {
+      if (!sessionRef.current?.userId) return;
+
       if (document.visibilityState === "hidden") {
-        if (!sessionRef.current?.userId) return;
+        // Değişiklik yoksa gönderme
+        if (mutationSeq.current === syncedSeq.current) return;
         const { customers, products, sales, payments, debts } = stateRef.current;
-        const body = JSON.stringify({ customers, products, sales, payments, debts, shas: shaCache.current });
         fetch("/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body,
+          body: JSON.stringify({ customers, products, sales, payments, debts, sha: shaRef.current }),
           keepalive: true,
         }).catch(() => {/* best-effort */});
+        // Not: response okunamıyor (keepalive), SHA güncellemesi visible'da yapılıyor
+      }
+
+      if (document.visibilityState === "visible") {
+        // Taze SHA al — keepalive POST'tan sonra SHA stale olabilir
+        fetch("/api/sync")
+          .then(r => r.ok ? r.json() : null)
+          .then(json => { if (json?.sha !== undefined) shaRef.current = json.sha; })
+          .catch(() => {});
       }
     }
-    document.addEventListener("visibilitychange", onVisibilityHide);
-    return () => document.removeEventListener("visibilitychange", onVisibilityHide);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, []);
 
-  // ── Periyodik sync (her 10 dakikada bir) ─────────────────────────────────
+  // ── Periyodik sync (her 3 dakikada bir) ──────────────────────────────────
   useEffect(() => {
     if (status !== "authenticated") return;
-    const id = setInterval(() => syncToDrive(), 10 * 60 * 1000);
+    const id = setInterval(() => syncToDrive(), 3 * 60 * 1000);
     return () => clearInterval(id);
   }, [status, syncToDrive]);
 
@@ -366,15 +396,21 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSales([]);     lsWrite(LS.sales,     []);
     setPayments([]);  lsWrite(LS.payments,  []);
     setDebts([]);     lsWrite(LS.debts,     []);
+    mutationSeq.current += 1;
     if (sessionRef.current?.userId) {
-      await fetch("/api/sync", {
+      const res = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customers: [], products: [], sales: [], payments: [], debts: [],
-          shas: shaCache.current,
+          sha: shaRef.current,
         }),
       }).catch(console.error);
+      if (res && res instanceof Response && res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json?.sha !== undefined) shaRef.current = json.sha;
+        syncedSeq.current = mutationSeq.current;
+      }
     }
   }, []);
 
